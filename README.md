@@ -2,8 +2,7 @@
 
 报纸 PDF 爬取与合并工具 v2.2.0
 
-在线主页: [https://newspaper-pdf-tool.vercel.app](newspaper-pdf-tool-25121815-25121815s-projects.vercel.app)
-
+在线主页: [[https://newspaper-pdf-tool-25121815-25121815s-projects.vercel.app](https://newspaper-pdf-tool-25121815-25121815s-projects.vercel.app)]
 ## 功能
 
 - 报纸在线预览（内置 WebEngine 浏览器）
