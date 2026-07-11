@@ -27,7 +27,9 @@
 
 ### Windows
 
-下载 `dist/rmrb1.exe` 直接运行。
+下载 `NewspaperPDFTool.exe` 直接运行。
+通过网盘分享的文件：报纸
+链接: https://pan.baidu.com/s/1BBq7yAhafSGJxUp7kNPx5Q?pwd=cvis 提取码: cvis
 
 ### 银河麒麟 / Linux
 
@@ -37,6 +39,9 @@ sudo apt-get install -f
 ```
 
 启动: `newspaper-pdf-tool` 或在应用菜单搜索「报纸PDF工具」
+
+下载地址：通过网盘分享的文件：报纸
+链接: https://pan.baidu.com/s/1BBq7yAhafSGJxUp7kNPx5Q?pwd=cvis 提取码: cvis
 
 ### 系统要求
 
