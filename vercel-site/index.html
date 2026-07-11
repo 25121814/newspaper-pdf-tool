@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newspaper PDF Tool - 报纸 PDF 爬取与合并工具</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #ffffff;
+    color: #000000;
+    line-height: 1.6;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+/* Header */
+header {
+    text-align: center;
+    padding: 80px 24px 60px;
+    border-bottom: 1px solid #e0e0e0;
+}
+header h1 {
+    font-size: 42px;
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+    color: #000;
+}
+header p.subtitle {
+    font-size: 18px;
+    color: #555;
+    margin-bottom: 24px;
+}
+.version-badge {
+    display: inline-block;
+    padding: 4px 16px;
+    border: 1px solid #000;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 24px;
+}
+
+/* Buttons */
+.btn-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+    display: inline-block;
+    padding: 12px 32px;
+    font-size: 15px;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.btn-primary { background: #000; color: #fff; border: 2px solid #000; }
+.btn-primary:hover { background: #333; }
+.btn-outline { background: #fff; color: #000; border: 2px solid #000; }
+.btn-outline:hover { background: #f0f0f0; }
+
+/* Sections */
+section {
+    padding: 60px 24px;
+    border-bottom: 1px solid #e0e0e0;
+}
+section h2 {
+    font-size: 24px;
+    margin-bottom: 32px;
+    color: #000;
+}
+
+/* Features */
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+}
+.feature-card {
+    padding: 24px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+.feature-card h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: #000;
+}
+.feature-card p {
+    font-size: 14px;
+    color: #555;
+}
+
+/* Newspaper list */
+.newspaper-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+.newspaper-item {
+    padding: 16px 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.newspaper-item .dot {
+    width: 8px; height: 8px;
+    background: #000;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Install */
+.code-block {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 20px 24px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+    overflow-x: auto;
+    margin-bottom: 24px;
+}
+.code-block .comment { color: #888; }
+.code-block .cmd { color: #000; font-weight: bold; }
+
+/* Tech stack */
+.tech-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.tech-tag {
+    padding: 6px 16px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #333;
+}
+
+/* File structure */
+.file-tree {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #333;
+    padding: 20px 24px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 40px 24px;
+    color: #888;
+    font-size: 13px;
+}
+footer a { color: #000; text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* Responsive */
+@media (max-width: 600px) {
+    header h1 { font-size: 28px; letter-spacing: 2px; }
+    header p.subtitle { font-size: 15px; }
+    .btn { padding: 10px 20px; font-size: 14px; }
+    section { padding: 40px 16px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>NEWSPAPER PDF TOOL</h1>
+    <p class="subtitle">报纸 PDF 爬取与合并工具</p>
+    <div class="version-badge">v2.2.0</div>
+    <div class="btn-group">
+        <a class="btn btn-primary" href="#download">下载安装</a>
+        <a class="btn btn-outline" href="#source">查看源码</a>
+    </div>
+</header>
+
+<section>
+    <h2>功能特性</h2>
+    <div class="features">
+        <div class="feature-card">
+            <h3>报纸在线预览</h3>
+            <p>内置 WebEngine 浏览器，直接在应用中预览报纸网页，支持翻页导航。</p>
+        </div>
+        <div class="feature-card">
+            <h3>PDF 自动爬取</h3>
+            <p>自动扫描报纸页面，发现并下载所有 PDF 版面文件，后台线程运行不阻塞界面。</p>
+        </div>
+        <div class="feature-card">
+            <h3>智能合并</h3>
+            <p>下载的多个 PDF 自动合并为一个完整文件，支持 pypdf / PyPDF2 / Ghostscript 多重回退。</p>
+        </div>
+        <div class="feature-card">
+            <h3>日期自动生成</h3>
+            <p>URL 根据当前系统日期自动计算，无需手动更新。非每日出版的报纸自动回退到最近一期。</p>
+        </div>
+        <div class="feature-card">
+            <h3>自定义下载路径</h3>
+            <p>可选择 PDF 下载保存位置，设置自动保存到配置文件中。</p>
+        </div>
+        <div class="feature-card">
+            <h3>多平台支持</h3>
+            <p>Windows (.exe) 和 Linux (.deb) 双平台安装包，支持银河麒麟 / 统信 UOS / Ubuntu。</p>
+        </div>
+    </div>
+</section>
+
+<section>
+    <h2>支持的报纸</h2>
+    <div class="newspaper-grid">
+        <div class="newspaper-item"><span class="dot"></span>人民日报</div>
+        <div class="newspaper-item"><span class="dot"></span>湖南日报</div>
+        <div class="newspaper-item"><span class="dot"></span>讽刺与幽默</div>
+        <div class="newspaper-item"><span class="dot"></span>经济日报</div>
+        <div class="newspaper-item"><span class="dot"></span>学习时报</div>
+        <div class="newspaper-item"><span class="dot"></span>工人日报</div>
+    </div>
+    <p style="margin-top: 16px; color: #666; font-size: 14px;">支持手动添加任意报纸网址。</p>
+</section>
+
+<section id="download">
+    <h2>下载安装</h2>
+
+    <h3 style="font-size: 16px; margin-bottom: 12px;">Windows</h3>
+    <p style="margin-bottom: 8px; color: #555; font-size: 14px;">下载 <code>rmrb.exe</code> 直接运行，无需安装 Python 环境。</p>
+    <p style="margin-bottom: 24px; color: #555; font-size: 14px;">
+        <a href="https://github.com/25121814/newspaper-pdf-tool/releases" style="color: #000;">GitHub Releases 下载</a>
+    </p>
+
+    <h3 style="font-size: 16px; margin-bottom: 12px;">银河麒麟 / Linux (ARM64 / x86_64)</h3>
+    <div class="code-block">
+        <span class="comment"># 安装 .deb 包</span><br>
+        <span class="cmd">sudo dpkg -i newspaper-pdf-tool_2.2.0_all.deb</span><br>
+        <span class="cmd">sudo apt-get install -f</span><br>
+        <br>
+        <span class="comment"># 启动方式</span><br>
+        <span class="cmd">newspaper-pdf-tool</span><br>
+        <span class="comment"># 或在应用菜单搜索「报纸PDF工具」</span>
+    </div>
+
+    <h3 style="font-size: 16px; margin-bottom: 12px;">系统要求</h3>
+    <div class="code-block">
+        <span class="comment"># Linux</span><br>
+        Python 3.8+, PyQt5, QtWebEngine, libffi8<br>
+        <br>
+        <span class="comment"># Windows</span><br>
+        Windows 10/11, 无需额外依赖
+    </div>
+</section>
+
+<section id="source">
+    <h2>项目源码</h2>
+    <p style="margin-bottom: 16px; color: #555;">完整源码托管在 GitHub，欢迎 Star 和贡献。</p>
+    <div class="btn-group" style="justify-content: flex-start;">
+        <a class="btn btn-outline" href="https://github.com/25121814/newspaper-pdf-tool" target="_blank">GitHub 仓库</a>
+    </div>
+
+    <h3 style="font-size: 16px; margin-top: 32px; margin-bottom: 16px;">技术栈</h3>
+    <div class="tech-list">
+        <span class="tech-tag">Python 3.8+</span>
+        <span class="tech-tag">PyQt5</span>
+        <span class="tech-tag">QtWebEngine</span>
+        <span class="tech-tag">pypdf</span>
+        <span class="tech-tag">requests</span>
+        <span class="tech-tag">BeautifulSoup4</span>
+        <span class="tech-tag">PyInstaller (Windows)</span>
+        <span class="tech-tag">dpkg (Linux)</span>
+    </div>
+
+    <h3 style="font-size: 16px; margin-top: 32px; margin-bottom: 16px;">项目结构</h3>
+    <div class="file-tree">
+newspaper-pdf-tool/<br>
+├── rmrb.py                     <span style="color:#888"># 主程序 (约 1300 行)</span><br>
+├── websites.json               <span style="color:#888"># 报纸网址配置</span><br>
+├── ico.ico                     <span style="color:#888"># 应用图标</span><br>
+├── rmrb.spec                   <span style="color:#888"># PyInstaller 打包配置</span><br>
+├── build-kylin-arm64/          <span style="color:#888"># Linux .deb 构建目录</span><br>
+│   ├── build_deb_windows.py    <span style="color:#888"># Windows 上构建 .deb 的脚本</span><br>
+│   ├── source/                 <span style="color:#888"># 源文件副本</span><br>
+│   └── wheels/                 <span style="color:#888"># 内嵌 Python 依赖</span><br>
+└── dist/                       <span style="color:#888"># 构建输出 (exe / deb)</span>
+    </div>
+</section>
+
+<section>
+    <h2>更新日志</h2>
+    <div style="font-size: 14px; line-height: 2;">
+        <p><strong>v2.2.0</strong> - 修复 Linux 权限问题，配置写入用户目录，补全 pypdf 依赖，浅色界面主题</p>
+        <p><strong>v2.1.0</strong> - 修复报纸 URL 模板，索引页自动回退，SSL 兼容，下载路径选择，自动打开 PDF</p>
+        <p><strong>v2.0.0</strong> - 动态日期 URL 生成，赛博朋克 UI，多线程下载，PDF 智能合并</p>
+    </div>
+</section>
+
+<footer>
+    <p>Newspaper PDF Tool v2.2.0</p>
+    <p style="margin-top: 8px;">
+        联系: <a href="mailto:25121814@qq.com">25121814@qq.com</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://github.com/25121814/newspaper-pdf-tool">GitHub</a>
+    </p>
+</footer>
+
+</body>
+</html>
