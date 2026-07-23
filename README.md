@@ -1,13 +1,14 @@
 # Newspaper PDF Tool
 
-报纸 PDF 爬取与合并工具 v2.2.0
+报纸 PDF 爬取与合并工具 v2.6.6
 
 在线主页: [[https://newspaper-pdf-tool-25121815-25121815s-projects.vercel.app](https://newspaper-pdf-tool-25121815-25121815s-projects.vercel.app)]
 ## 功能
 
 - 报纸在线预览（内置 WebEngine 浏览器）
 - PDF 自动爬取与下载（后台线程，不阻塞界面）
-- 多 PDF 智能合并（pypdf / PyPDF2 / Ghostscript 多重回退）
+- 多 PDF 智能合并（qpdf / Ghostscript / pypdf / PyPDF2 多重回退，优先 C 原生加速）
+- 首页固定免责声明（居中两行显示）
 - URL 根据当前日期自动生成，非每日出版物自动回退到最近一期
 - 自定义下载路径
 - Windows (.exe) + Linux (.deb) 双平台
@@ -17,23 +18,25 @@
 - 人民日报
 - 湖南日报
 - 讽刺与幽默
+- 经济日报
 - 学习时报
 - 工人日报
+- 中国证券报
 
-支持手动添加任意报纸网址
+支持手动添加任意报纸网址（含 81.cn 解放军报，手动添加后照常下载）
 
 ## 安装
 
 ### Windows
 
-下载 `NewspaperPDFTool.exe` 直接运行。
+下载 `newspaper-pdf-tool_2.6.6_x64.exe` 直接运行。
 通过网盘分享的文件：报纸
 链接: https://pan.baidu.com/s/1BBq7yAhafSGJxUp7kNPx5Q?pwd=cvis 提取码: cvis
 
 ### 银河麒麟 / Linux
 
 ```bash
-sudo dpkg -i newspaper-pdf-tool_2.2.0_all.deb
+sudo dpkg -i newspaper-pdf-tool_2.6.6_arm64.deb
 sudo apt-get install -f
 ```
 
@@ -56,7 +59,7 @@ newspaper-pdf-tool/
 ├── ico.ico                     # 应用图标
 ├── icon.png                    # PNG 图标
 ├── build_deb_windows.py        # Windows 上构建 .deb 的脚本
-├── newspaper-pdf-tool_2.2.0_all.deb  # Linux 安装包
+├── newspaper-pdf-tool_2.6.6_arm64.deb  # Linux 安装包
 └── .gitignore
 ```
 
