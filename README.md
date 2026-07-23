@@ -1,6 +1,6 @@
 # Newspaper PDF Tool
 
-报纸 PDF 爬取与合并工具 v2.6.6
+报纸 PDF 下载与合并工具 v2.6.6
 
 在线主页: [[https://newspaper-pdf-tool-25121815-25121815s-projects.vercel.app](https://newspaper-pdf-tool-25121815-25121815s-projects.vercel.app)]
 ## 功能
@@ -31,7 +31,7 @@
 
 下载 `newspaper-pdf-tool_2.6.6_x64.exe` 直接运行。
 通过网盘分享的文件：报纸
-链接: https://pan.baidu.com/s/1BBq7yAhafSGJxUp7kNPx5Q?pwd=cvis 提取码: cvis
+链接: https://pan.baidu.com/s/1OzRN73obwe3i5SXJOE1vvg?pwd=52pj 提取码: 52pj
 
 ### 银河麒麟 / Linux
 
@@ -42,8 +42,9 @@ sudo apt-get install -f
 
 启动: `newspaper-pdf-tool` 或在应用菜单搜索「报纸PDF工具」
 
-下载地址：通过网盘分享的文件：报纸
-链接: https://pan.baidu.com/s/1BBq7yAhafSGJxUp7kNPx5Q?pwd=cvis 提取码: cvis
+下载地址：
+通过网盘分享的文件：报纸
+链接: https://pan.baidu.com/s/1OzRN73obwe3i5SXJOE1vvg?pwd=52pj 提取码: 52pj
 
 ### 系统要求
 
