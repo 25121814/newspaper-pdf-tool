@@ -8,3 +8,4 @@ dist/*.exe
 .vercel
 *.log
 app.log
+*.deb

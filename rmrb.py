@@ -1,5 +1,17 @@
+# ============================================================
+#  版本历史 (Version History)
+# ============================================================
+# Version 2.6.6 (2026-07-22): 首页头部“时间”左侧新增固定免责声明；_load_websites 加载后强制过滤 newspaper=jfjb（解放军报）条目（仅从列表移除，下载代码与 81.cn 支持保留，用户仍可在界面手动添加该报纸）；修复旧版用户配置残留导致列表仍显示解放军报；APP_VERSION 升至 2.6.6
+# Version 2.6.5 (2026-07-22): 默认报纸列表移除「解放军报」(jfjb) 条目（下载代码与 81.cn 支持保留，用户可自行添加）；移除作者邮箱；合并优先使用 qpdf/ghostscript 原生工具（银河麒麟上 PyPDF2 合并极慢，优化后数十倍提速）
+# Version 2.6.4 (2026-07-22): 新增中国证券报订阅；修复手动添加报纸(学习时报)下载过多往期PDF；首页显示版本号v2.6.4
+#                            （_crawl_pages 限本期目录爬取）；下载PDF统一命名；合并输出固定为 merged.pdf 并覆盖旧文件
+# Version 2.6.3 (2026-07-22): 修复首页布局，报纸列表由右侧移至左侧（QSplitter 添加顺序修正）
+# Version 2.6.2 (2026-07-21): 修复军报(81.cn)下载PDF报错，新增 URL paperName 兜底检测；websites.json 补军报条目
+# Version 2.6.1 (2026-07-21): 新增解放军报(81.cn)电子版支持（移植至 github-repo 源码）
+# Version 2.6.0 (2026-07-20): 首次构建银河麒麟 V10 SP1 兼容 .deb 安装包（Python 3.5 兼容转换流水线）
+
 """
-PDF 网页显示、爬取与合并工具 v2.2
+PDF 网页显示、爬取与合并工具 v2.6.6
 ===================================
 赛博朋克风格桌面应用，支持：
   - 报纸网站预览与导航
@@ -31,7 +43,7 @@ import logging
 import urllib3
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, parse_qs, urlparse
 from datetime import datetime
 
 from PyQt5.QtWidgets import (
@@ -40,7 +52,10 @@ from PyQt5.QtWidgets import (
     QMessageBox, QLabel, QProgressBar, QTextEdit, QStatusBar, QFrame,
     QDialogButtonBox, QSizePolicy, QFileDialog
 )
-from PyQt5.QtWebEngineWidgets import QWebEngineView
+try:
+    from PyQt5.QtWebEngineWidgets import QWebEngineView
+except Exception:
+    QWebEngineView = None
 from PyQt5.QtCore import Qt, QUrl, QThread, pyqtSignal, QTimer
 
 # ================================================================
@@ -49,6 +64,10 @@ from PyQt5.QtCore import Qt, QUrl, QThread, pyqtSignal, QTimer
 
 # 应用根目录（exe / 脚本所在目录）
 APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+# 当前版本号（单一来源）：首页窗口标题与状态栏均引用此常量；
+# 升级版本时，同步修改此处数值与上方 Version History 注释。
+APP_VERSION = "2.6.6"
 
 # 配置目录：系统安装时存到用户目录，便携运行时存到程序目录
 # 三种方式检测系统安装：
@@ -214,6 +233,17 @@ def generate_newspaper_url(key: str, dt: datetime | None = None) -> str:
         # 工人日报: 固定首页入口
         return "https://www.workercn.cn/papers/grrb/index.html"
 
+    if key == "jfjb":
+        # 解放军报(81.cn): 预览页；下载走 index.json 采集（见 collect_81cn_pdfs）
+        return (
+            f"http://www.81.cn/szb_223187/szblb/index.html"
+            f"?paperName=jfjb&paperDate={Y}-{M}-{D}&paperNumber=01"
+        )
+
+    if key == "zgzqb":
+        # 中国证券报: .../html/YYYY-MM/DD/nbs.D110000zgzqb_A01.htm
+        return f"https://epaper.cs.com.cn/zgzqb/html/{Y}-{M}/{D}/nbs.D110000zgzqb_A01.htm"
+
     return ""
 
 
@@ -266,6 +296,53 @@ def resolve_latest_url(key: str, url: str) -> str:
     return url
 
 
+# ================================================================
+#  81.cn 数字报数据源（解放军报等）
+#  —— 扩展点：同站新增报纸只需在此注册一项 ——
+#  预览页: http://www.81.cn/{site_id}/{list_page}/index.html?paperName={paper_name}&paperDate=YYYY-MM-DD&paperNumber=01
+#  数据接口: http://www.81.cn/_szb/{paper_name}/{YYYY}/{MM}/{DD}/index.json
+# ================================================================
+
+_81CN_SOURCES = {
+    "jfjb":  {"paper_name": "jfjb",  "site_id": "szb_223187", "list_page": "szblb"},
+    # "zggfb": {"paper_name": "zggfb", "site_id": "szb_223187", "list_page": "gfbszblb"},  # 中国国防报，预留
+}
+
+
+def get_81cn_index_url(paper_name: str, dt: datetime) -> str:
+    """构造 81.cn 期次数据 JSON 地址。"""
+    Y, M, D = str(dt.year), f"{dt.month:02d}", f"{dt.day:02d}"
+    return f"http://www.81.cn/_szb/{paper_name}/{Y}/{M}/{D}/index.json"
+
+
+def collect_81cn_pdfs(paper_name: str, dt: datetime) -> list[str]:
+    """
+    抓取 81.cn index.json，按版序提取各版面 paperPDF 直链。
+    返回空列表表示当天无内容或请求失败。
+    """
+    raw = fetch_html(get_81cn_index_url(paper_name, dt))
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except Exception as exc:
+        logger.warning("解析 81.cn index.json 失败: %s", exc)
+        return []
+    pages = data.get("paperInfo", [])
+    # 按 paperNumber 数值排序，保证合并顺序与版面一致
+    pages = sorted(pages, key=lambda p: int(p.get("paperNumber", "0") or 0))
+    return [p["paperPDF"] for p in pages if p.get("paperPDF")]
+
+
+def _parse_paper_date(url: str) -> datetime | None:
+    """从 81.cn 预览 URL 的 ?paperDate=YYYY-MM-DD 解析日期。"""
+    try:
+        q = parse_qs(urlparse(url).query)
+        return datetime.strptime(q["paperDate"][0], "%Y-%m-%d")
+    except Exception:
+        return None
+
+
 # 默认报纸配置（首次运行或重置时使用）
 DEFAULT_WEBSITES = [
     {"name": "人民日报", "newspaper": "rmrb"},
@@ -274,6 +351,7 @@ DEFAULT_WEBSITES = [
     {"name": "经济日报", "newspaper": "jjrb"},
     {"name": "学习时报", "newspaper": "xxsb"},
     {"name": "工人日报", "newspaper": "grrb"},
+    {"name": "中国证券报", "newspaper": "zgzqb"},
 ]
 
 
@@ -607,13 +685,17 @@ class DownloadWorker(QThread):
     finished_ok = pyqtSignal(str)          # 成功：合并文件路径
     finished_err = pyqtSignal(str)         # 失败：错误信息
 
-    def __init__(self, seed_url: str, download_dir: str, parent=None):
+    def __init__(self, seed_url: str, download_dir: str, parent=None, newspaper_key=None):
         super().__init__(parent)
         self.seed_url = seed_url
         self.download_dir = download_dir
+        self.newspaper_key = newspaper_key
 
     # ---------- 爬取同栏目页面 ----------
     def _crawl_pages(self, start_url: str) -> list[str]:
+        # 仅在本期（与种子同目录及其子目录）内爬取，避免顺着“上一期/下一期”
+        # 等导航链接逃到其他日期、下载无关的旧 PDF。
+        base_dir = urljoin(start_url, ".")
         visited, queue = [], [start_url]
         while queue:
             current = queue.pop(0)
@@ -628,18 +710,54 @@ class DownloadWorker(QThread):
                 href = a_tag["href"].strip()
                 if "node_" in href and (".html" in href or ".htm" in href):
                     full = urljoin(current, href)
+                    # 关键修复：只跟进仍处于本期目录（含其子目录）的链接，
+                    # 跨目录的往期导航（如 ../2026-07/20/node_1.html）一律忽略。
+                    if not full.startswith(base_dir):
+                        continue
                     if full not in visited and full not in queue:
                         queue.append(full)
             self.log.emit(f"已扫描页面 ({len(visited)}) : {current}")
         return visited
 
+    # ---------- 统一命名辅助 ----------
+    def _naming(self):
+        """返回 (前缀, 期次日期串) 用于统一命名下载的 PDF。"""
+        prefix = self.newspaper_key or "paper"
+        m = re.search(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", self.seed_url)
+        if not m:
+            m = re.search(r"(\d{4})(\d{2})[-/](\d{1,2})", self.seed_url)
+        if m:
+            issue_date = "{0:04d}{1:02d}{2:02d}".format(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        else:
+            issue_date = datetime.now().strftime("%Y%m%d")
+        return prefix, issue_date
+
     # ---------- 下载单个 PDF ----------
-    def _download_one(self, pdf_url: str) -> str | None:
-        fname = safe_filename(pdf_url)
+    def _download_one(self, pdf_url: str, fname: str | None = None) -> str | None:
+        if fname is None:
+            fname = safe_filename(pdf_url)
         fpath = os.path.join(self.download_dir, fname)
         if os.path.exists(fpath):
             self.log.emit(f"已存在，跳过: {fname}")
             return fpath
+        # 81.cn 的 PDF CDN(rmt-static-publish.81.cn) 启用了 EdgeOne Bot 防护，
+        # 普通 requests/urllib 的 TLS 指纹会被识别为 bot 并返回反爬页，
+        # 需伪装 Chrome TLS 指纹才能拿到真实 PDF。
+        is_81cn_pdf = ("rmt-static-publish.81.cn" in pdf_url) or bool(_81CN_SOURCES.get(self.newspaper_key))
+        if is_81cn_pdf:
+            try:
+                from curl_cffi import requests as cffi
+                resp = cffi.get(pdf_url, impersonate="chrome", timeout=60)
+                resp.raise_for_status()
+                data = resp.content
+                if data[:4] != b"%PDF":
+                    raise ValueError(f"返回内容非 PDF (head={data[:8]!r})")
+                with open(fpath, "wb") as f:
+                    f.write(data)
+                self.log.emit(f"下载完成: {fname}  ({len(data)/1024:.0f} KB)")
+                return fpath
+            except Exception as exc:
+                self.log.emit(f"curl_cffi 下载失败，回退 requests: {pdf_url} -> {exc}")
         try:
             resp = _http_session.get(pdf_url, timeout=60)
             resp.raise_for_status()
@@ -662,15 +780,40 @@ class DownloadWorker(QThread):
     @staticmethod
     def _merge_pdfs(pdf_files: list[str], output: str) -> None:
         """
-        合并多个 PDF，按优先级尝试多种方式：
-          1. pypdf (>=3.0)
-          2. PyPDF2
-          3. 系统 ghostscript (gs / gswin64c)
-          4. 简单二进制拼接（最后手段）
+        合并多个 PDF，按优先级尝试（优先系统原生工具，速度远快于纯 Python）：
+          1. qpdf        (C 实现，最快；麒麟可装 sudo apt install qpdf)
+          2. ghostscript (gs / gswin*)
+          3. pypdf       (纯 Python，现代版)
+          4. PyPDF2      (纯 Python，兼容旧系统)
+          5. 单个 PDF 直接复制
         """
         import shutil as _shutil
+        import subprocess as _sp
 
-        # --- 方法 1: pypdf ---
+        # --- 方法 1: qpdf（C 实现，最快）---
+        _qpdf = _shutil.which("qpdf")
+        if _qpdf:
+            try:
+                cmd = [_qpdf, "--empty", "--pages"] + list(pdf_files) + [output]
+                _sp.run(cmd, check=True, capture_output=True, timeout=300)
+                logger.info("qpdf 合并成功 (%d 个文件)", len(pdf_files))
+                return
+            except Exception as exc:
+                logger.warning("qpdf 合并出错: %s", exc)
+
+        # --- 方法 2: Ghostscript（系统命令）---
+        _gs = _shutil.which("gs") or _shutil.which("gswin64c") or _shutil.which("gswin32c")
+        if _gs:
+            try:
+                cmd = [_gs, "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dBATCH", "-dQUIET",
+                       f"-sOutputFile={output}"] + list(pdf_files)
+                _sp.run(cmd, check=True, capture_output=True, timeout=300)
+                logger.info("Ghostscript 合并成功 (%d 个文件)", len(pdf_files))
+                return
+            except Exception as exc:
+                logger.warning("Ghostscript 合并出错: %s", exc)
+
+        # --- 方法 3: pypdf ---
         _PdfWriter = None
         try:
             from pypdf import PdfWriter as _PdfWriter
@@ -689,7 +832,7 @@ class DownloadWorker(QThread):
             except Exception as exc:
                 logger.warning("pypdf 合并出错: %s", exc)
 
-        # --- 方法 2: PyPDF2 ---
+        # --- 方法 4: PyPDF2 ---
         _PdfMerger = None
         try:
             from PyPDF2 import PdfMerger as _PdfMerger
@@ -708,20 +851,7 @@ class DownloadWorker(QThread):
             except Exception as exc:
                 logger.warning("PyPDF2 合并出错: %s", exc)
 
-        # --- 方法 3: Ghostscript (系统命令) ---
-        _gs = _shutil.which("gs") or _shutil.which("gswin64c") or _shutil.which("gswin32c")
-        if _gs:
-            try:
-                import subprocess as _sp
-                cmd = [_gs, "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dBATCH", "-dQUIET",
-                       f"-sOutputFile={output}"] + list(pdf_files)
-                _sp.run(cmd, check=True, capture_output=True, timeout=300)
-                logger.info("Ghostscript 合并成功 (%d 个文件)", len(pdf_files))
-                return
-            except Exception as exc:
-                logger.warning("Ghostscript 合并出错: %s", exc)
-
-        # --- 方法 4: 如果只有一个 PDF，直接复制 ---
+        # --- 方法 5: 单个 PDF 直接复制 ---
         if len(pdf_files) == 1:
             _shutil.copy2(pdf_files[0], output)
             logger.info("单个 PDF，直接复制")
@@ -729,45 +859,69 @@ class DownloadWorker(QThread):
 
         # --- 全部失败 ---
         raise RuntimeError(
-            f"PDF 合并失败：已尝试 pypdf / PyPDF2 / Ghostscript 均不可用。\n"
+            f"PDF 合并失败：已尝试 qpdf / Ghostscript / pypdf / PyPDF2 均不可用。\n"
             f"已下载 {len(pdf_files)} 个文件到: {os.path.dirname(pdf_files[0])}\n"
-            f"请安装 pypdf (pip install pypdf) 或 ghostscript 后重试。"
+            f"请安装 qpdf (apt install qpdf) 或 ghostscript 后重试。"
         )
 
     # ---------- 主流程 ----------
     def run(self):
         try:
             self.log.emit(f"开始爬取，种子: {self.seed_url}")
-            pages = self._crawl_pages(self.seed_url)
-            if not pages:
-                self.finished_err.emit("未找到任何可爬取的页面。")
-                return
 
-            # 收集 PDF 链接
-            pdf_urls: list[str] = []
-            for page in pages:
-                html = fetch_html(page)
-                if html is None:
-                    continue
-                soup = BeautifulSoup(html, "html.parser")
-                for a_tag in soup.find_all("a", href=True):
-                    href = a_tag["href"].strip()
-                    if ".pdf" in href.lower():
-                        full = urljoin(page, href)
-                        if full not in pdf_urls:
-                            pdf_urls.append(full)
+            # ── 81.cn 类数字报：直接抓 index.json 取各版面 paperPDF ──
+            # 优先用 newspaper_key 匹配；若 key 缺失则从 URL 的 paperName 参数兜底检测
+            _81cn_src = None
+            if self.newspaper_key and self.newspaper_key in _81CN_SOURCES:
+                _81cn_src = _81CN_SOURCES[self.newspaper_key]
+            elif "81.cn" in self.seed_url and "paperName=" in self.seed_url:
+                # 兜底：从预览 URL 提取 paperName，反向匹配注册表
+                _qs = parse_qs(urlparse(self.seed_url).query)
+                _pn = (_qs.get("paperName") or [None])[0]
+                if _pn:
+                    _81cn_src = next(
+                        (v for v in _81CN_SOURCES.values() if v["paper_name"] == _pn),
+                        None,
+                    )
+
+            if _81cn_src:
+                dt = _parse_paper_date(self.seed_url) or datetime.now()
+                self.log.emit(
+                    f"81.cn 数据源: {_81cn_src['paper_name']} @ {dt.strftime('%Y-%m-%d')}"
+                )
+                pdf_urls = collect_81cn_pdfs(_81cn_src["paper_name"], dt)
+            else:
+                pages = self._crawl_pages(self.seed_url)
+                if not pages:
+                    self.finished_err.emit("未找到任何可爬取的页面。")
+                    return
+                # 收集 PDF 链接
+                pdf_urls = []
+                for page in pages:
+                    html = fetch_html(page)
+                    if html is None:
+                        continue
+                    soup = BeautifulSoup(html, "html.parser")
+                    for a_tag in soup.find_all("a", href=True):
+                        href = a_tag["href"].strip()
+                        if ".pdf" in href.lower():
+                            full = urljoin(page, href)
+                            if full not in pdf_urls:
+                                pdf_urls.append(full)
 
             if not pdf_urls:
-                self.finished_err.emit("页面中未找到任何 PDF 链接。")
+                self.finished_err.emit("未找到任何 PDF 链接。")
                 return
 
+            prefix, issue_date = self._naming()
             self.log.emit(f"共发现 {len(pdf_urls)} 个 PDF，开始下载...")
             os.makedirs(self.download_dir, exist_ok=True)
 
             downloaded: list[str] = []
             for idx, url in enumerate(pdf_urls):
-                self.progress.emit(idx + 1, len(pdf_urls), safe_filename(url))
-                fpath = self._download_one(url)
+                fname = f"{prefix}_{issue_date}_{idx + 1:02d}.pdf"
+                self.progress.emit(idx + 1, len(pdf_urls), fname)
+                fpath = self._download_one(url, fname)
                 if fpath:
                     downloaded.append(fpath)
 
@@ -775,9 +929,8 @@ class DownloadWorker(QThread):
                 self.finished_err.emit("没有成功下载任何 PDF 文件。")
                 return
 
-            # 合并 —— 以日期命名
-            date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            merged_name = f"merged_{date_str}.pdf"
+            # 合并 —— 固定输出文件名 merged.pdf（每次运行文件名一致，已存在则直接覆盖）
+            merged_name = "merged.pdf"
             merged_path = os.path.join(self.download_dir, merged_name)
             self.log.emit(f"正在合并 {len(downloaded)} 个 PDF...")
             self._merge_pdfs(downloaded, merged_path)
@@ -800,7 +953,7 @@ class DownloadWorker(QThread):
 class DownloadProgressDialog(QDialog):
     """模态进度对话框，驱动 DownloadWorker。"""
 
-    def __init__(self, seed_url: str, download_dir: str, parent=None):
+    def __init__(self, seed_url: str, download_dir: str, parent=None, newspaper_key=None):
         super().__init__(parent)
         self.setWindowTitle("PDF 下载进度")
         self.setFixedSize(560, 440)
@@ -834,7 +987,7 @@ class DownloadProgressDialog(QDialog):
         layout.addWidget(self.close_btn)
 
         # 启动后台线程
-        self.worker = DownloadWorker(seed_url, download_dir, self)
+        self.worker = DownloadWorker(seed_url, download_dir, self, newspaper_key=newspaper_key)
         self.worker.progress.connect(self._on_progress)
         self.worker.log.connect(self._on_log)
         self.worker.finished_ok.connect(self._on_success)
@@ -893,7 +1046,7 @@ class DownloadProgressDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Newspaper PDF Tool")
+        self.setWindowTitle(f"Newspaper PDF Tool v{APP_VERSION}")
         self.resize(1280, 820)
 
         # 用户配置
@@ -931,6 +1084,16 @@ class MainWindow(QMainWindow):
 
         if not self.websites:
             self.websites = [dict(e) for e in DEFAULT_WEBSITES]
+
+        # 合并默认配置中缺失的报纸（仅追加，不修改已有条目）
+        _existing_names = {e.get("name") for e in self.websites}
+        for _d in DEFAULT_WEBSITES:
+            if _d["name"] not in _existing_names:
+                self.websites.append(dict(_d))
+
+        # 强制过滤「解放军报」(jfjb)：仅从列表移除默认/历史残留条目，
+        # 下载代码与 81.cn 支持保留；用户手动添加且不含 newspaper=jfjb 的条目不受影响。
+        self.websites = [e for e in self.websites if e.get("newspaper") != "jfjb"]
 
         # 自动刷新已知报纸的 URL 为当天日期
         self._refresh_urls()
@@ -971,7 +1134,7 @@ class MainWindow(QMainWindow):
 
         # — 顶部标题栏 —
         header = QFrame()
-        header.setFixedHeight(52)
+        header.setFixedHeight(60)
         header.setStyleSheet(
             "QFrame { background: #ffffff;"
             "border-bottom: 1px solid #cccccc; }"
@@ -987,11 +1150,19 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
-        author_label = QLabel("25121814@qq.com")
-        author_label.setStyleSheet(
-            "font-size: 11px; color: #000000; background: transparent;"
+        disclaimer_label = QLabel(
+            "免责声明：本软件仅提供报纸下载便利。用户应确保其下载和使用行为符合相关法律及报纸的用户协议，"
+            "不得用于任何侵权目的。\n对于因用户使用本软件而引起的任何版权纠纷，开发者不承担任何责任。"
         )
-        header_layout.addWidget(author_label)
+        disclaimer_label.setWordWrap(False)
+        disclaimer_label.setAlignment(Qt.AlignCenter)
+        disclaimer_label.setFixedWidth(620)
+        disclaimer_label.setStyleSheet(
+            "font-size: 10px; color: #666666; background: transparent;"
+        )
+        header_layout.addWidget(disclaimer_label)
+
+        header_layout.addStretch()
 
         date_label = QLabel(datetime.now().strftime("%Y-%m-%d  %A"))
         date_label.setStyleSheet(
@@ -1073,17 +1244,25 @@ class MainWindow(QMainWindow):
         left_layout.addLayout(path_row)
 
         # PDF 下载按钮
-        self.btn_download = QPushButton("PDF 爬取 & 合并")
+        self.btn_download = QPushButton("PDF_下载_合并")
         self.btn_download.setObjectName("btnPrimary")
         self.btn_download.clicked.connect(self._download_pdfs)
         left_layout.addWidget(self.btn_download)
 
-        # 右侧 Web 预览
-        self.web_view = QWebEngineView()
-        self.web_view.setStyleSheet("background: #ffffff;")
+        # 右侧 Web 预览（QtWebEngine 可选；缺失时降级为 QLabel 提示）
+        if QWebEngineView is not None:
+            self.web_view = QWebEngineView()
+            self.web_view.setStyleSheet("background: #ffffff;")
+        else:
+            self.web_view = None
+            self.web_label = QLabel("（当前环境未安装 QtWebEngine，无法内嵌预览；\n可直接点“下载 PDF”按钮抓取报纸。）")
+            self.web_label.setStyleSheet("padding: 16px; color: #888;")
 
         splitter.addWidget(left)
-        splitter.addWidget(self.web_view)
+        if self.web_view is not None:
+            splitter.addWidget(self.web_view)
+        else:
+            splitter.addWidget(self.web_label)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([280, 1000])
@@ -1093,6 +1272,11 @@ class MainWindow(QMainWindow):
 
         # 状态栏
         self.statusBar().showMessage("就绪")
+
+        # 状态栏右侧常驻显示版本号（不被临时状态消息覆盖）
+        version_label = QLabel(f"v{APP_VERSION}")
+        version_label.setStyleSheet("padding-right: 10px; color: #888;")
+        self.statusBar().addPermanentWidget(version_label)
 
     @staticmethod
     def _shorten_path(p: str) -> str:
@@ -1109,7 +1293,8 @@ class MainWindow(QMainWindow):
             date=now.strftime("%Y 年 %m 月 %d 日"),
             weekday=weekdays[now.weekday()],
         )
-        self.web_view.setHtml(html, QUrl("about:blank"))
+        if self.web_view is not None:
+            self.web_view.setHtml(html, QUrl("about:blank"))
 
     # -------------------- 列表操作 --------------------
 
@@ -1147,7 +1332,8 @@ class MainWindow(QMainWindow):
                     )
                     url = resolved
 
-            self.web_view.load(QUrl(url))
+            if self.web_view is not None:
+                self.web_view.load(QUrl(url))
             self.statusBar().showMessage(f"正在加载: {url}")
 
     # -------------------- 添加 / 编辑 / 删除 --------------------
@@ -1251,12 +1437,19 @@ class MainWindow(QMainWindow):
     # -------------------- PDF 下载 --------------------
 
     def _download_pdfs(self):
+        if self.web_view is None:
+            QMessageBox.information(self, "提示", "当前环境未启用内嵌预览，请在地址栏手动确认报纸页面后重试")
+            return
         seed = self.web_view.url().toString()
         if not seed or seed == "about:blank":
             QMessageBox.information(self, "提示", "请先在右侧预览一个有效的报纸页面")
             return
+        np_key = None
+        item = self.list_widget.currentItem()
+        if item:
+            np_key = item.data(Qt.UserRole + 1)
         self.statusBar().showMessage("正在下载 PDF...")
-        dlg = DownloadProgressDialog(seed, self.download_dir, self)
+        dlg = DownloadProgressDialog(seed, self.download_dir, self, newspaper_key=np_key)
         dlg.exec_()
         self.statusBar().showMessage("就绪")
 

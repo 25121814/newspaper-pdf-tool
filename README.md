@@ -81,4 +81,4 @@ Python 3.8+ / PyQt5 / QtWebEngine / pypdf / requests / BeautifulSoup4
 
 ## 联系
 
-25121814@qq.com
+欢迎通过 GitHub Issue 反馈问题。

@@ -21,7 +21,7 @@ import glob
 
 # ---- 配置 ----
 PKG = "newspaper-pdf-tool"
-VER = "2.2.0"
+VER = "2.6.6"
 ARCH = "all"
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -41,7 +41,7 @@ Priority: optional
 Architecture: {ARCH}
 Depends: python3 (>= 3.8), python3-pyqt5, python3-pyqt5.qtwebengine, libffi8 | libffi7
 Installed-Size: 2500
-Maintainer: Newspaper PDF Tool <25121814@qq.com>
+Maintainer: Newspaper PDF Tool
 Description: 报纸 PDF 爬取与合并工具
  赛博朋克风格桌面应用，支持报纸网站预览、PDF 自动爬取下载与智能合并。
  内置人民日报、湖南日报、经济日报等多家报纸，URL 根据当前日期自动生成。
