@@ -1,13 +1,13 @@
 # ============================================================
 #  版本历史 (Version History)
 # ============================================================
-# Version 2.6.6 (2026-07-22): 首页头部“时间”左侧新增固定免责声明；_load_websites 加载后强制过滤 newspaper=jfjb（解放军报）条目（仅从列表移除，下载代码与 81.cn 支持保留，用户仍可在界面手动添加该报纸）；修复旧版用户配置残留导致列表仍显示解放军报；APP_VERSION 升至 2.6.6
-# Version 2.6.5 (2026-07-22): 默认报纸列表移除「解放军报」(jfjb) 条目（下载代码与 81.cn 支持保留，用户可自行添加）；移除作者邮箱；合并优先使用 qpdf/ghostscript 原生工具（银河麒麟上 PyPDF2 合并极慢，优化后数十倍提速）
+# Version 2.6.6 (2026-07-22): 首页头部“时间”左侧新增固定免责声明；_load_websites 加载后强制过滤 newspaper=jfjb（）条目（仅从列表移除，下载代码与 cn 支持保留，用户仍可在界面手动添加该报纸）；修复旧版用户配置残留导致列表仍显示报；APP_VERSION 升至 2.6.6
+# Version 2.6.5 (2026-07-22): 默认报纸列表移除「报」(b) 条目（下载代码与 cn 支持保留，用户可自行添加）；合并优先使用 qpdf/ghostscript 原生工具（银河麒麟上 PyPDF2 合并极慢，优化后数十倍提速）
 # Version 2.6.4 (2026-07-22): 新增中国证券报订阅；修复手动添加报纸(学习时报)下载过多往期PDF；首页显示版本号v2.6.4
 #                            （_crawl_pages 限本期目录爬取）；下载PDF统一命名；合并输出固定为 merged.pdf 并覆盖旧文件
 # Version 2.6.3 (2026-07-22): 修复首页布局，报纸列表由右侧移至左侧（QSplitter 添加顺序修正）
-# Version 2.6.2 (2026-07-21): 修复军报(81.cn)下载PDF报错，新增 URL paperName 兜底检测；websites.json 补军报条目
-# Version 2.6.1 (2026-07-21): 新增解放军报(81.cn)电子版支持（移植至 github-repo 源码）
+# Version 2.6.2 (2026-07-21): 修复报(cn)下载PDF报错，新增 URL paperName 兜底检测；websites.json 补报条目
+# Version 2.6.1 (2026-07-21): 新增解放报(cn)电子版支持（移植至 github-repo 源码）
 # Version 2.6.0 (2026-07-20): 首次构建银河麒麟 V10 SP1 兼容 .deb 安装包（Python 3.5 兼容转换流水线）
 
 """
@@ -234,7 +234,7 @@ def generate_newspaper_url(key: str, dt: datetime | None = None) -> str:
         return "https://www.workercn.cn/papers/grrb/index.html"
 
     if key == "jfjb":
-        # 解放军报(81.cn): 预览页；下载走 index.json 采集（见 collect_81cn_pdfs）
+        # 报(cn): 预览页；下载走 index.json 采集（见 collect_81cn_pdfs）
         return (
             f"http://www.81.cn/szb_223187/szblb/index.html"
             f"?paperName=jfjb&paperDate={Y}-{M}-{D}&paperNumber=01"
@@ -297,7 +297,7 @@ def resolve_latest_url(key: str, url: str) -> str:
 
 
 # ================================================================
-#  81.cn 数字报数据源（解放军报等）
+#  cn 数字报数据源（报等）
 #  —— 扩展点：同站新增报纸只需在此注册一项 ——
 #  预览页: http://www.81.cn/{site_id}/{list_page}/index.html?paperName={paper_name}&paperDate=YYYY-MM-DD&paperNumber=01
 #  数据接口: http://www.81.cn/_szb/{paper_name}/{YYYY}/{MM}/{DD}/index.json
@@ -1091,8 +1091,8 @@ class MainWindow(QMainWindow):
             if _d["name"] not in _existing_names:
                 self.websites.append(dict(_d))
 
-        # 强制过滤「解放军报」(jfjb)：仅从列表移除默认/历史残留条目，
-        # 下载代码与 81.cn 支持保留；用户手动添加且不含 newspaper=jfjb 的条目不受影响。
+        # 强制过滤「报」(b)：仅从列表移除默认/历史残留条目，
+        # 下载代码与 cn 支持保留；用户手动添加且不含 newspaper=jfjb 的条目不受影响。
         self.websites = [e for e in self.websites if e.get("newspaper") != "jfjb"]
 
         # 自动刷新已知报纸的 URL 为当天日期
