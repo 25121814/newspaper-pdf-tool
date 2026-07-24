@@ -84,6 +84,13 @@ python build_deb_windows.py
 Python 3.8+ / PyQt5 / QtWebEngine / pypdf / requests / BeautifulSoup4
 
 ## 常见问题
+
+双击没反应 / 终端报 ImportError: No module named PyQt5 → 执行 sudo apt install python3-pyqt5（postinst 的自动安装在该机未成功）。
+界面能开，但右侧报纸网页空白 → sudo apt install python3-pyqt5.qtwebengine（预览为可选功能，不影响下载合并）。
+合并几十个 PDF 特别慢 → sudo apt install qpdf，重启程序后合并走 C 原生引擎，提速数十倍。
+卸载 → sudo apt remove newspaper-pdf-tool（用户配置 ~/.config/newspaper-pdf-tool/ 会保留，如需彻底清理手动删除该目录）。
+
+## 常见问题
 双击没反应 / 终端报 ImportError: No module named PyQt5 → 执行 sudo apt install python3-pyqt5（postinst 的自动安装在该机未成功）。
 界面能开，但右侧报纸网页空白 → sudo apt install python3-pyqt5.qtwebengine（预览为可选功能，不影响下载合并）。
 合并几十个 PDF 特别慢 → sudo apt install qpdf，重启程序后合并走 C 原生引擎，提速数十倍。
